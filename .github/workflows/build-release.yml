@@ -79,5 +79,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             artifacts/ai-landscape-discovery-win-x64.zip \
             artifacts/ai-landscape-discovery-win-x64.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --notes "Self-contained Windows x64 AI Landscape Discovery release."
