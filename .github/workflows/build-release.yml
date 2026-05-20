@@ -2,15 +2,77 @@ name: build-release
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
 permissions:
+  actions: read
   contents: write
+  security-events: write
 
 jobs:
+  dependency-vulnerability-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Scan NuGet dependencies
+        shell: pwsh
+        run: |
+          $output = dotnet list AiLandscapeDiscovery.sln package --vulnerable --include-transitive 2>&1
+          $output | Write-Output
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+          if ($output -match 'has the following vulnerable packages') {
+            throw 'Vulnerable NuGet packages were found.'
+          }
+
+  codeql:
+    name: CodeQL analysis
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: csharp
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+
   build-windows:
+    needs:
+      - dependency-vulnerability-scan
+      - codeql
     runs-on: windows-latest
 
     steps:
